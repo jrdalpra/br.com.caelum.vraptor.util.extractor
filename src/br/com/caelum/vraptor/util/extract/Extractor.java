@@ -4,9 +4,12 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.JarURLConnection;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.StringTokenizer;
@@ -20,6 +23,7 @@ import org.apache.commons.io.IOUtils;
 
 import br.com.caelum.vraptor.ioc.ApplicationScoped;
 import br.com.caelum.vraptor.ioc.Component;
+import br.com.caelum.vraptor.util.extract.java.FileExtratable;
 import br.com.caelum.vraptor.util.extract.java.JavaExtractable;
 
 /**
@@ -31,12 +35,12 @@ import br.com.caelum.vraptor.util.extract.java.JavaExtractable;
 @ApplicationScoped
 public class Extractor {
 
-	public static String META_INF = "META-INF";
-	public static String DESTINATION = "/WEB-INF/jsp";
-	public static String SEPARATOR = "/";
+	public static String			META_INF	= "META-INF";
+	public static String			DESTINATION	= "/WEB-INF/jsp";
+	public static String			SEPARATOR	= "/";
 
-	private final ServletContext context;
-	private List<Extractable> extractables;
+	private final ServletContext	context;
+	private List<Extractable>		extractables;
 
 	public Extractor(ServletContext context) {
 		this.context = context;
@@ -81,6 +85,7 @@ public class Extractor {
 
 	protected void extract(Extractable extractable) throws IOException {
 		String destinationFile = destinationFileOf(extractable).replace(SEPARATOR, File.separator);
+		System.out.println(destinationFile);
 		FileOutputStream output = new FileOutputStream(destinationFile);
 		IOUtils.copy(extractable.getInputStream(), output);
 		IOUtils.closeQuietly(output);
@@ -105,7 +110,7 @@ public class Extractor {
 		return context.getRealPath(DESTINATION) + SEPARATOR;
 	}
 
-	protected List<Extractable> find() throws IOException {
+	protected List<Extractable> find() throws IOException, URISyntaxException {
 		Enumeration<URL> resources = loader().getResources(META_INF);
 		if (resources != null) {
 			while (resources.hasMoreElements()) {
@@ -115,10 +120,35 @@ public class Extractor {
 		return extractables;
 	}
 
-	private void verifyAndAddToExtractables(URL resource) throws IOException {
+	private void verifyAndAddToExtractables(URL resource) throws IOException, URISyntaxException {
 		URLConnection connection = resource.openConnection();
 		if (connection instanceof JarURLConnection) {
 			verify(((JarURLConnection) connection).getJarFile());
+		} else {
+			verify(resource);
+		}
+
+	}
+
+	private void verify(URL resource) throws MalformedURLException, URISyntaxException {
+		File dir = new File(resource.getFile());
+		verify(dir);
+	}
+
+	private void append(File file) throws MalformedURLException, URISyntaxException {
+		extractables.add(new FileExtratable(file));
+	}
+
+	private void verify(File dir) throws MalformedURLException, URISyntaxException {
+		if (dir != null && dir.isDirectory()) {
+			List<File> files = Arrays.asList(dir.listFiles());
+			for (File file : files) {
+				if (file.isDirectory()) {
+					verify(file);
+				} else if (matches(file.getAbsolutePath())) {
+					append(file);
+				}
+			}
 		}
 	}
 
@@ -137,8 +167,12 @@ public class Extractor {
 		return Thread.currentThread().getContextClassLoader();
 	}
 
+	protected boolean matches(String entry) {
+		return entry != null && entry.endsWith(".jsp");
+	}
+
 	protected boolean matches(JarEntry entry) {
-		return entry.getName().endsWith(".jsp");
+		return matches(entry.getName());
 	}
 
 }
