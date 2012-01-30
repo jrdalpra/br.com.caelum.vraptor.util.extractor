@@ -36,10 +36,13 @@ import br.com.caelum.vraptor.util.extract.java.JavaExtractable;
 public class Extractor {
 
 	public static String			META_INF	= "META-INF";
+
 	public static String			DESTINATION	= "/WEB-INF/jsp";
+
 	public static String			SEPARATOR	= "/";
 
 	private final ServletContext	context;
+
 	private List<Extractable>		extractables;
 
 	public Extractor(ServletContext context) {
@@ -85,7 +88,6 @@ public class Extractor {
 
 	protected void extract(Extractable extractable) throws IOException {
 		String destinationFile = destinationFileOf(extractable).replace(SEPARATOR, File.separator);
-		System.out.println(destinationFile);
 		FileOutputStream output = new FileOutputStream(destinationFile);
 		IOUtils.copy(extractable.getInputStream(), output);
 		IOUtils.closeQuietly(output);
